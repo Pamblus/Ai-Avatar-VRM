@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no,interactive-widget=resizes-content">
+<meta name="theme-color" content="#ffd9ec">
+<title>AI-Avatar-VRM</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}                                      html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#2a2440}
+body{background:linear-gradient(180deg,#ffe6f0 0%,#ffd9ec 22%,#e7d4ff 52%,#c9e6ff 82%,#b3ddff 100%)}
+.app{position:fixed;inset:0;overflow:hidden}
+
+/* ─── сцена ─── */
+.scene-wrap{position:absolute;top:0;left:0;right:0;bottom:44dvh;
+  transition:bottom .32s cubic-bezier(.3,.9,.4,1);overflow:hidden;z-index:1}
+.scene-wrap::before{content:"";position:absolute;top:-20%;left:50%;transform:translateX(-50%);
+  width:120%;height:60%;pointer-events:none;z-index:1;
+  background:radial-gradient(closest-side,rgba(255,255,255,.85),rgba(255,240,250,.4) 40%,transparent 75%);filter:blur(8px)}
+.scene-wrap::after{content:"";position:absolute;bottom:-10%;left:0;right:0;height:45%;pointer-events:none;z-index:1;
+  background:radial-gradient(closest-side at 30% 100%,rgba(255,200,230,.6),transparent 70%),
+    radial-gradient(closest-side at 75% 100%,rgba(200,230,255,.6),transparent 70%);filter:blur(20px)}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2;
+  opacity:0;transition:opacity .6s ease;touch-action:none}
+#c.ready{opacity:1}
+.decor-grid{position:absolute;left:0;right:0;bottom:0;height:55%;opacity:.25;z-index:1;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.9) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.9) 1px,transparent 1px);
+  background-size:44px 44px;
+  transform:perspective(520px) rotateX(62deg);transform-origin:center bottom;
+  -webkit-mask-image:linear-gradient(to top,black,transparent);
+  mask-image:linear-gradient(to top,black,transparent)}
+.decor-aura{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:.4;
+  background:conic-gradient(from 0deg,#ffb3d9,#c3a8ff,#8fd8ff,#b8ffd9,#ffe9a8,#ffb3d9);
+  filter:blur(70px);
+  -webkit-mask:radial-gradient(circle at 50% 55%,#000 8%,transparent 55%);
+  mask:radial-gradient(circle at 50% 55%,#000 8%,transparent 55%);
+  animation:spinSlow 24s linear infinite}
+@keyframes spinSlow{to{transform:rotate(360deg)}}
+.petals,.sparkles{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.petal{position:absolute;top:-6vh;border-radius:50% 10% 50% 10%;
+  background:radial-gradient(circle at 30% 30%,#fff,#ffb6d5 60%,#ff8fc0);
+  box-shadow:0 0 10px rgba(255,150,200,.55);animation:fall linear infinite;opacity:.9}
+@keyframes fall{0%{transform:translate3d(0,-6vh,0) rotate(0);opacity:0}
+  10%{opacity:.95}100%{transform:translate3d(30px,70vh,0) rotate(540deg);opacity:0}}
+.sp{position:absolute;border-radius:50%;
+  background:radial-gradient(circle,#fff,rgba(255,255,255,0) 70%);animation:twinkle ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:1;transform:scale(1.25)}}
+
+/* ─── HUD ─── */
+.hud-top{position:absolute;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;z-index:5;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
+.brand{background:rgba(255,255,255,.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.9);border-radius:16px;padding:8px 12px;
+  box-shadow:0 8px 24px rgba(180,140,220,.22);pointer-events:auto}
+.brand-kicker{font-size:9px;letter-spacing:.22em;color:#a37cc9;font-weight:800}
+.brand-title{font-size:15px;margin-top:2px;font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(135deg,#ff7fb6,#a58bff 45%,#5bc9ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.status{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
+  font-size:10px;font-weight:700;background:rgba(255,255,255,.65);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.9);color:#7a5a99;pointer-events:auto;
+  box-shadow:0 8px 24px rgba(180,140,220,.2);white-space:nowrap;max-width:50vw;overflow:hidden;text-overflow:ellipsis}
+.dot{width:7px;height:7px;border-radius:50%;background:#f8b400;flex:none;
+  box-shadow:0 0 0 3px rgba(248,180,0,.2),0 0 10px #f8b400;
+  animation:pulseDot 1.6s ease-in-out infinite}
+.dot.ok{background:#5bdc9c;box-shadow:0 0 0 3px rgba(91,220,156,.25),0 0 10px #5bdc9c}
+.dot.err{background:#ff7a7a;box-shadow:0 0 0 3px rgba(255,122,122,.25),0 0 10px #ff7a7a}
+@keyframes pulseDot{50%{transform:scale(1.28)}}
+
+.top-btn{position:absolute;top:max(12px,env(safe-area-inset-top));z-index:7;
+  border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.75);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-radius:14px;width:42px;height:42px;font-size:18px;
+  box-shadow:0 8px 24px rgba(180,140,220,.25);cursor:pointer;
+  transition:transform .12s;padding:0;display:grid;place-items:center}
+.top-btn:active{transform:scale(.92)}
+#open-anim{right:12px}
+
+.pills{position:absolute;left:12px;right:12px;bottom:10px;z-index:5;
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;pointer-events:none}
+.pill{pointer-events:auto;border:1px solid rgba(255,255,255,.95);
+  background:rgba(255,255,255,.7);backdrop-filter:blur(12px);
+  border-radius:14px;padding:9px 14px;font-size:18px;line-height:1;cursor:pointer;
+  box-shadow:0 6px 18px rgba(180,140,220,.28);
+  transition:transform .12s,filter .12s;user-select:none}
+.pill:active{transform:scale(.92);filter:brightness(1.08)}
+
+/* ─── чат ─── */
+.chat-panel{position:absolute;left:0;right:0;bottom:0;height:44dvh;z-index:10;
+  display:flex;flex-direction:column;
+  background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,245,252,.88));
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border-top-left-radius:24px;border-top-right-radius:24px;
+  border-top:1px solid rgba(255,255,255,.95);
+  box-shadow:0 -20px 50px rgba(180,140,220,.22);
+  transition:height .32s cubic-bezier(.3,.9,.4,1);overflow:hidden;
+  padding-bottom:env(safe-area-inset-bottom)}
+.chat-panel::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#ff8fc7,#b597ff,#7fd3ff,#ffd6a0,#ff8fc7);
+  background-size:200% 100%;animation:slide 6s linear infinite}
+@keyframes slide{to{background-position:200% 0}}
+.chat-handle{height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.chat-handle::before{content:"";width:42px;height:4px;border-radius:2px;background:rgba(150,110,190,.35)}
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:0 16px 12px;flex:none}
+.identity{display:flex;gap:10px;align-items:center;min-width:0}
+.avatar{width:36px;height:36px;border-radius:12px;flex:none;
+  background:linear-gradient(135deg,#ff9ecb,#a58bff);display:grid;place-items:center;
+  font-weight:900;color:#fff;font-size:13px;
+  box-shadow:0 6px 16px rgba(200,130,230,.45),0 0 0 3px rgba(255,255,255,.7) inset}
+.name{font-weight:800;font-size:13px;color:#3b2e56;line-height:1.1}
+.sub{font-size:10px;color:#9b86c2;font-weight:600;margin-top:1px}
+.live{font-size:9px;letter-spacing:.14em;color:#fff;font-weight:800;
+  background:linear-gradient(135deg,#5bdc9c,#3fc7e0);border-radius:999px;
+  padding:5px 9px;box-shadow:0 4px 12px rgba(91,220,156,.45);flex:none}
+.messages{flex:1;min-height:0;overflow-y:auto;padding:6px 14px 12px;
+  display:flex;flex-direction:column;gap:9px;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+.messages::-webkit-scrollbar{width:5px}
+.messages::-webkit-scrollbar-thumb{background:rgba(180,140,220,.4);border-radius:3px}
+.msg{max-width:88%;padding:10px 13px;border-radius:16px;font-size:14px;line-height:1.42;
+  color:#3b2e56;animation:in .3s cubic-bezier(.2,.9,.3,1.3) both;
+  word-wrap:break-word;white-space:pre-wrap;overflow-wrap:anywhere;
+  box-shadow:0 3px 10px rgba(180,140,220,.14);user-select:text;-webkit-user-select:text}
+.msg.ai{align-self:flex-start;background:linear-gradient(135deg,#fff,#fff0f8);
+  border:1px solid rgba(255,180,220,.45);border-bottom-left-radius:5px}
+.msg.me{align-self:flex-end;color:#fff;background:linear-gradient(135deg,#b28aff,#ff8fc7);
+  border:1px solid rgba(255,255,255,.35);border-bottom-right-radius:5px;
+  box-shadow:0 5px 14px rgba(200,120,200,.35)}
+.time{display:block;margin-top:4px;font-size:9px;color:rgba(120,90,160,.5)}
+.msg.me .time{color:rgba(255,255,255,.65)}
+@keyframes in{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+.msg.typing{display:inline-flex;gap:4px;padding:12px 14px}
+.msg.typing span{width:6px;height:6px;border-radius:50%;background:#c78fff;animation:bounce 1.2s infinite}
+.msg.typing span:nth-child(2){animation-delay:.15s}
+.msg.typing span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.35}
+  40%{transform:translateY(-5px);opacity:1}}
+.composer{padding:8px 12px 12px;display:flex;gap:8px;flex:none;
+  background:rgba(255,255,255,.35);border-top:1px solid rgba(200,160,230,.18)}
+.composer input{flex:1;min-width:0;border:1px solid rgba(200,160,230,.35);outline:none;
+  border-radius:14px;background:rgba(255,255,255,.9);color:#3b2e56;
+  padding:12px 14px;font:inherit;font-size:16px;font-weight:500;
+  transition:border-color .15s,box-shadow .15s;
+  user-select:text;-webkit-user-select:text;touch-action:auto}
+.composer input::placeholder{color:#b6a0d3}
+.composer input:focus{border-color:#c78fff;box-shadow:0 0 0 3px rgba(200,140,255,.2)}
+.composer button{border:0;border-radius:14px;width:46px;height:46px;flex:none;
+  color:#fff;font-size:18px;cursor:pointer;
+  background:linear-gradient(135deg,#a58bff,#ff8fc7);
+  box-shadow:0 6px 16px rgba(200,120,200,.4);transition:transform .12s}
+.composer button:active{transform:scale(.93)}
+.composer button:disabled{opacity:.45;cursor:not-allowed}
+.app.expanded .scene-wrap{bottom:88dvh}
+.app.expanded .chat-panel{height:88dvh}
+
+/* ─── BVH панель ─── */
+.anim-panel{position:fixed;left:0;right:0;bottom:0;z-index:20;height:60dvh;max-height:680px;
+  background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(250,240,252,.95));
+  backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border-top-left-radius:24px;border-top-right-radius:24px;
+  border-top:1px solid rgba(255,255,255,.95);
+  box-shadow:0 -20px 60px rgba(180,140,220,.3);
+  transform:translateY(105%);transition:transform .32s cubic-bezier(.3,.9,.4,1);
+  display:flex;flex-direction:column;overflow:hidden;
+  padding-bottom:env(safe-area-inset-bottom)}
+.anim-panel.open{transform:translateY(0)}
+.anim-panel::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#ff8fc7,#b597ff,#7fd3ff,#ffd6a0,#ff8fc7);
+  background-size:200% 100%;animation:slide 6s linear infinite}
+.anim-handle{height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.anim-handle::before{content:"";width:42px;height:4px;border-radius:2px;background:rgba(150,110,190,.35)}
+.anim-header{padding:0 14px 10px;flex:none;display:flex;gap:8px;align-items:center}
+.anim-header input{flex:1;border:1px solid rgba(200,160,230,.4);outline:none;
+  border-radius:12px;background:rgba(255,255,255,.9);color:#3b2e56;
+  padding:10px 12px;font:inherit;font-size:14px;user-select:text;-webkit-user-select:text}
+.anim-header input:focus{border-color:#c78fff;box-shadow:0 0 0 3px rgba(200,140,255,.2)}
+.anim-header button{border:0;border-radius:12px;background:linear-gradient(135deg,#a58bff,#ff8fc7);
+  color:#fff;font-weight:800;font-size:12px;padding:10px 14px;cursor:pointer;
+  box-shadow:0 4px 12px rgba(200,120,200,.4)}
+.anim-header button.sec{background:rgba(200,160,230,.25);color:#7a5a99;box-shadow:none}
+.anim-stats{padding:0 14px 8px;font-size:11px;color:#9b86c2;font-weight:600;flex:none}
+.anim-list{flex:1;overflow-y:auto;padding:0 12px 12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:6px;align-content:start}
+.anim-list::-webkit-scrollbar{width:6px}
+.anim-list::-webkit-scrollbar-thumb{background:rgba(180,140,220,.4);border-radius:3px}
+.anim-item{padding:9px 11px;border-radius:11px;cursor:pointer;
+  background:rgba(255,255,255,.7);border:1px solid rgba(200,160,230,.3);
+  font-size:12px;line-height:1.3;color:#3b2e56;font-weight:600;
+  transition:all .15s;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  user-select:none}
+.anim-item:hover{background:rgba(255,240,250,.95);border-color:rgba(200,140,255,.6)}
+.anim-item.active{background:linear-gradient(135deg,#ffb8d8,#c3a8ff);
+  color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(200,120,200,.4)}
+.anim-empty{padding:40px 20px;text-align:center;color:#9b86c2;font-size:13px;grid-column:1/-1}
+.anim-player{flex:none;padding:10px 14px 12px;border-top:1px solid rgba(200,160,230,.2);
+  display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.5);flex-wrap:wrap}
+.anim-player .now{font-size:11px;color:#7a5a99;font-weight:800;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:100px}
+.anim-player button{border:0;border-radius:10px;padding:8px 12px;font-size:13px;
+  font-weight:800;cursor:pointer;color:#fff;
+  background:linear-gradient(135deg,#a58bff,#ff8fc7);
+  box-shadow:0 4px 12px rgba(200,120,200,.35);min-width:44px;height:38px;flex:none}
+.anim-player button:active{transform:scale(.94)}
+.anim-player button.sec{background:rgba(200,160,230,.28);color:#7a5a99;box-shadow:none}
+.anim-player .speed{display:flex;gap:4px;align-items:center;font-size:11px;color:#7a5a99;font-weight:800}
+.anim-player .speed input{width:60px}
+
+@media (min-width:900px){
+  .scene-wrap{right:400px;bottom:0}
+  .chat-panel{left:auto;right:16px;top:16px;bottom:16px;width:380px;height:auto;
+    border-radius:22px;border:1px solid rgba(255,255,255,.9)}
+  .chat-handle{display:none}
+  .app.expanded .scene-wrap{right:400px;bottom:0}
+  .app.expanded .chat-panel{height:auto}
+  .brand-title{font-size:18px}.brand-kicker{font-size:10px}
+  .hud-top{top:24px;left:24px;right:auto}
+  #open-anim{top:24px;right:24px}
+  .pills{bottom:24px;left:24px;right:auto;justify-content:flex-start}
+  .anim-panel{left:auto;right:16px;bottom:16px;top:auto;width:520px;
+    height:70vh;max-height:760px;border-radius:22px;
+    transform:translateY(120%)}
+  .anim-panel.open{transform:translateY(0)}
+  .anim-handle{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="scene-wrap" id="scene-wrap">
+    <div class="decor-aura"></div>
+    <div class="decor-grid"></div>
+    <div class="petals" id="petals"></div>
+    <div class="sparkles" id="sparkles"></div>
+    <canvas id="c"></canvas>
+
+    <div class="hud-top">
+      <div class="brand">
+        <div class="brand-kicker">AI SHOW</div>
+        <div class="brand-title" id="brand-title">загрузка…</div>
+      </div>
+      <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">VRM…</span></div>
+    </div>
+
+    <button class="top-btn" id="open-anim" aria-label="анимации">🎬</button>
+
+    <div class="pills">
+      <button class="pill" data-cmd="wave">👋</button>
+      <button class="pill" data-cmd="nod">🙂</button>
+      <button class="pill" data-cmd="joy">✨</button>
+      <button class="pill" data-cmd="stop">↺</button>
+    </div>
+  </div>
+
+  <section class="chat-panel" id="chat-panel">
+    <div class="chat-handle" id="chat-handle"></div>
+    <div class="chat-head">
+      <div class="identity">
+        <div class="avatar">AI</div>
+        <div><div class="name">AI-Avatar-VRM</div><div class="sub">neural · vrm</div></div>
+      </div>
+      <div class="live">LIVE</div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="msg ai">Привет ✨. Напиши что-нибудь или открой 🎬 — там анимации.<span class="time">now</span></div>
+    </div>
+    <form class="composer" id="form">
+      <input id="input" autocomplete="off" autocapitalize="sentences"
+             inputmode="text" enterkeyhint="send" placeholder="Напиши…">
+      <button type="submit" id="send-btn">➤</button>
+    </form>
+  </section>
+
+  <div class="anim-panel" id="anim-panel">
+    <div class="anim-handle" id="anim-handle"></div>
+    <div class="anim-header">
+      <input id="search" placeholder="поиск…" autocomplete="off">
+      <button id="btn-reload" class="sec">↻</button>
+    </div>
+    <div class="anim-stats" id="stats">загрузка списка…</div>
+    <div class="anim-list" id="list"><div class="anim-empty">загрузка…</div></div>
+    <div class="anim-player">
+      <div class="now" id="now">— не играет —</div>
+      <button id="btn-play">▶</button>
+      <button id="btn-pause" class="sec">⏸</button>
+      <button id="btn-stop" class="sec">■</button>
+      <div class="speed">
+        <span>x</span>
+        <input type="range" id="speed" min="0.1" max="2" step="0.05" value="1">
+        <span id="speed-v">1.0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.4.0/lib/three-vrm.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { BVHLoader } from 'three/addons/loaders/BVHLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ═════════ 0. DOM ═════════ */
+const canvas    = document.getElementById('c');
+const statusDot = document.getElementById('status-dot');
+const statusTxt = document.getElementById('status-text');
+const brandTtl  = document.getElementById('brand-title');
+const app       = document.getElementById('app');
+const chatHandle= document.getElementById('chat-handle');
+const setStatus = (t, cls='') => { statusTxt.textContent = t; statusDot.className = 'dot ' + cls; };
+setStatus('VRM…');
+
+/* ═════════ 1. Сцена ═════════ */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 50);
+camera.position.set(0, 1.4, 3.2);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.3));
+const kl = new THREE.DirectionalLight(0xffe0f0, 1.7); kl.position.set(2,4,3);  scene.add(kl);
+const rl = new THREE.DirectionalLight(0xb9c7ff, 1.0); rl.position.set(-2,2,-3);scene.add(rl);
+const fl = new THREE.DirectionalLight(0xffd6f0, 0.6); fl.position.set(0,1,3);  scene.add(fl);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.09;
+controls.enablePan = false; controls.minDistance = 1.2; controls.maxDistance = 8;
+controls.minPolarAngle = 0.15; controls.maxPolarAngle = Math.PI * 0.75;
+controls.touches.ONE = THREE.TOUCH.ROTATE;
+controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+controls.target.set(0, 0.9, 0); controls.update();
+
+const clock = new THREE.Clock();
+
+/* ═════════ 2. Кости + rest-позы ═════════ */
+const HUMAN = [
+  'hips','spine','chest','upperChest','neck','head',
+  'leftShoulder','leftUpperArm','leftLowerArm','leftHand',
+  'rightShoulder','rightUpperArm','rightLowerArm','rightHand',
+  'leftUpperLeg','leftLowerLeg','leftFoot','leftToes',
+  'rightUpperLeg','rightLowerLeg','rightFoot','rightToes',
+];
+const PARENT = {
+  hips: null, spine:'hips', chest:'spine', upperChest:'chest', neck:'upperChest', head:'neck',
+  leftShoulder:'upperChest', leftUpperArm:'leftShoulder', leftLowerArm:'leftUpperArm', leftHand:'leftLowerArm',
+  rightShoulder:'upperChest', rightUpperArm:'rightShoulder', rightLowerArm:'rightUpperArm', rightHand:'rightLowerArm',
+  leftUpperLeg:'hips', leftLowerLeg:'leftUpperLeg', leftFoot:'leftLowerLeg', leftToes:'leftFoot',
+  rightUpperLeg:'hips', rightLowerLeg:'rightUpperLeg', rightFoot:'rightLowerLeg', rightToes:'rightFoot',
+};
+
+let vrm = null;
+const bones = {};
+const vrmRestW = {};
+let sceneRestW = new THREE.Quaternion();
+let bodyBase = { x: 0, y: 0, z: 0 };
+let bodyBaseRot = { x: 0, y: 0, z: 0 };
+
+/* targets для ручного режима */
+const targets = {};
+for (const hn of HUMAN) targets[hn] = { x: 0, y: 0, z: 0 };
+const bodyT = { x:0, y:0, z:0, rx:0, ry:0, rz:0 };
+const faceT = {};
+
+let bvhMode = false;      // true → mixer рулит, ручные позы отключены
+let mixer = null, action = null, bvhRoot = null;
+
+/* ═════════ 3. VRM ═════════ */
+const vrmLoader = new GLTFLoader();
+vrmLoader.register(p => new VRMLoaderPlugin(p));
+vrmLoader.load('./character.vrm', gltf => {
+  try {
+    vrm = gltf.userData.vrm;
+    if (!vrm) { setStatus('не VRM', 'err'); return; }
+    if (vrm.meta?.metaVersion === '0') {
+      try { VRMUtils.rotateVRM0(vrm); } catch(e){}
+    }
+    vrm.scene.traverse(o => { o.frustumCulled = false; });
+    scene.add(vrm.scene);
+
+    for (const hn of HUMAN) {
+      const b = vrm.humanoid.getNormalizedBoneNode(hn);
+      if (b) { bones[hn] = b; b.name = hn; }
+    }
+
+    vrm.scene.updateMatrixWorld(true);
+    for (const hn in bones) {
+      const q = new THREE.Quaternion();
+      bones[hn].getWorldQuaternion(q);
+      vrmRestW[hn] = q;
+    }
+    vrm.scene.getWorldQuaternion(sceneRestW);
+
+    const box = new THREE.Box3().setFromObject(vrm.scene);
+    const size = new THREE.Vector3(), ctr = new THREE.Vector3();
+    box.getSize(size); box.getCenter(ctr);
+    const h = size.y || 1.6;
+    camera.position.set(ctr.x, ctr.y, ctr.z + h*1.5);
+    camera.lookAt(ctr.x, ctr.y, ctr.z);
+    controls.target.copy(ctr); controls.update();
+
+    bodyBase = { x: ctr.x, y: ctr.y - h*0.85, z: ctr.z };
+    bodyBaseRot = { x: vrm.scene.rotation.x, y: vrm.scene.rotation.y, z: vrm.scene.rotation.z };
+
+    canvas.classList.add('ready');
+    brandTtl.textContent = vrm.meta?.title || 'VRM';
+    setStatus('ONLINE · ' + Object.keys(bones).length + ' bones', 'ok');
+    console.log('[VRM] ready, bones:', Object.keys(bones).length);
+  } catch(e) {
+    console.error(e); setStatus('ошибка: ' + e.message, 'err');
+  }
+}, undefined, err => {
+  console.error(err); setStatus('VRM не загружен', 'err');
+});
+
+/* ═════════ 4. Ручные позы ═════════ */
+function setBoneTarget(hn, x, y, z) {
+  if (!targets[hn]) return;
+  if (x != null) targets[hn].x = x;
+  if (y != null) targets[hn].y = y;
+  if (z != null) targets[hn].z = z;
+}
+
+function applyTargets(dt) {
+  if (bvhMode) return;   // mixer рулит
+  const k = Math.min(1, dt * 10);
+  for (const hn of HUMAN) {
+    const b = bones[hn]; if (!b) continue;
+    const t = targets[hn];
+    b.rotation.x += (t.x - b.rotation.x) * k;
+    b.rotation.y += (t.y - b.rotation.y) * k;
+    b.rotation.z += (t.z - b.rotation.z) * k;
+  }
+  if (vrm) {
+    const s = vrm.scene;
+    s.position.x += ((bodyBase.x + bodyT.x) - s.position.x) * Math.min(1, dt*6);
+    s.position.y += ((bodyBase.y + bodyT.y) - s.position.y) * Math.min(1, dt*6);
+    s.position.z += ((bodyBase.z + bodyT.z) - s.position.z) * Math.min(1, dt*6);
+    s.rotation.x += ((bodyBaseRot.x + bodyT.rx) - s.rotation.x) * Math.min(1, dt*6);
+    s.rotation.y += ((bodyBaseRot.y + bodyT.ry) - s.rotation.y) * Math.min(1, dt*6);
+    s.rotation.z += ((bodyBaseRot.z + bodyT.rz) - s.rotation.z) * Math.min(1, dt*6);
+  }
+}
+
+function poseNeutral() {
+  for (const hn of HUMAN) targets[hn] = { x:0, y:0, z:0 };
+  setBoneTarget('leftUpperArm',  0, 0,  1.15);
+  setBoneTarget('rightUpperArm', 0, 0, -1.15);
+  setBoneTarget('leftLowerArm',  0, 0,  0.15);
+  setBoneTarget('rightLowerArm', 0, 0, -0.15);
+  for (const k in bodyT) bodyT[k] = 0;
+}
+
+/* idle */
+let idleOn = true, idleTimer = null;
+function idle(t) {
+  if (!idleOn || bvhMode) return;
+  const s = Math.sin(t*1.6), s2 = Math.sin(t*0.8);
+  setBoneTarget('hips',  0.010*s, 0, 0);
+  setBoneTarget('spine', 0.015*s2, 0.01*s, 0);
+  setBoneTarget('head', -0.010*s, 0.02*s2, 0);
+}
+function scheduleIdleReturn(sec=4) {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => { poseNeutral(); idleOn = true; }, sec*1000);
+}
+
+/* моргание */
+let blinkT = 0;
+function blink() { blinkT = 0.16; }
+function updateBlink(dt) {
+  if (blinkT <= 0 || !vrm?.expressionManager) return;
+  blinkT -= dt;
+  try { vrm.expressionManager.setValue('blink', blinkT > 0 ? 1 : 0); } catch(e){}
+}
+let autoBlinkT = 0;
+function autoBlink(dt) {
+  autoBlinkT -= dt;
+  if (autoBlinkT <= 0) { blink(); autoBlinkT = 2.5 + Math.random()*3; }
+}
+function setFace(name, v) {
+  if (!vrm?.expressionManager) return;
+  try { vrm.expressionManager.setValue(name, Math.max(0, Math.min(1, v))); } catch(e){}
+  faceT[name] = v;
+}
+
+/* пресеты */
+function poseJoy() {
+  poseNeutral();
+  setBoneTarget('leftUpperArm',  -0.4, 0, -2.0);
+  setBoneTarget('rightUpperArm', -0.4, 0,  2.0);
+  setBoneTarget('head',  -0.1, 0, 0);
+  setBoneTarget('spine', -0.05, 0, 0);
+  setFace('happy', 0.8);
+}
+function poseWave(hand='right') {
+  poseNeutral();
+  const a = hand==='left'?'leftUpperArm':'rightUpperArm';
+  const f = hand==='left'?'leftLowerArm':'rightLowerArm';
+  const s = hand==='left'?-1:1;
+  setBoneTarget(a, -0.3, 0, 1.9*s);
+  setBoneTarget(f,  0.0, 0, 0.8*s);
+  setFace('happy', 0.5);
+}
+
+/* ═════════ 5. BVH retarget (world-space) ═════════ */
+const bvhLoader = new BVHLoader();
+
+async function playBVHByName(name) {
+  if (!vrm) { console.warn('no vrm'); return; }
+  try {
+    const res = await fetch('/animations/' + encodeURIComponent(name));
+    if (!res.ok) { setStatus('BVH ' + res.status, 'err'); return; }
+    const text = await res.text();
+    await playBVHText(text, name);
+  } catch(e) {
+    console.error(e); setStatus('BVH fetch: ' + e.message, 'err');
+  }
+}
+
+async function playBVHText(text, name='') {
+  if (!vrm) return;
+  setStatus('BVH parse…');
+  let parsed;
+  try { parsed = bvhLoader.parse(text); }
+  catch(e) { setStatus('parse: ' + e.message, 'err'); return; }
+
+  if (bvhRoot?.parent) bvhRoot.parent.remove(bvhRoot);
+  bvhRoot = parsed.skeleton.bones[0];
+  bvhRoot.visible = false;
+  scene.add(bvhRoot);
+  bvhRoot.updateMatrixWorld(true);
+
+  const bvhBones = {}, bvhRestW = {};
+  bvhRoot.traverse(o => {
+    if (o.isBone) {
+      bvhBones[o.name] = o;
+      const q = new THREE.Quaternion();
+      o.getWorldQuaternion(q);
+      bvhRestW[o.name] = q;
+    }
+  });
+
+  const matched = HUMAN.filter(hn => bones[hn] && bvhBones[hn]);
+  if (matched.length < 5) { setStatus('BVH: мало совпадений', 'err'); return; }
+
+  const bMix = new THREE.AnimationMixer(bvhRoot);
+  const bAct = bMix.clipAction(parsed.clip);
+  bAct.play();
+
+  const fps = 30;
+  const N = Math.max(1, Math.ceil(parsed.clip.duration * fps));
+  const times = [];
+  const data = {}; for (const hn of matched) data[hn] = [];
+
+  const tmpQ = new THREE.Quaternion();
+  const restInv = new THREE.Quaternion();
+  const delta = new THREE.Quaternion();
+  const parentInv = new THREE.Quaternion();
+  const targetW = new THREE.Quaternion();
+  const frameW = {};
+
+  const t0 = performance.now();
+  for (let i = 0; i < N; i++) {
+    const t = i / fps;
+    times.push(t);
+    bMix.setTime(t);
+    bvhRoot.updateMatrixWorld(true);
+    for (const k in frameW) delete frameW[k];
+
+    for (const hn of HUMAN) {
+      if (!matched.includes(hn)) continue;
+      const bb = bvhBones[hn], vb = bones[hn];
+      bb.getWorldQuaternion(tmpQ);
+      restInv.copy(bvhRestW[hn]).invert();
+      delta.copy(tmpQ).multiply(restInv);
+      targetW.copy(delta).multiply(vrmRestW[hn]);
+      const pn = PARENT[hn];
+      const pW = (pn && frameW[pn]) ? frameW[pn] : sceneRestW;
+      parentInv.copy(pW).invert();
+      tmpQ.copy(parentInv).multiply(targetW);
+      vb.quaternion.copy(tmpQ);
+      frameW[hn] = targetW.clone();
+      data[hn].push(tmpQ.x, tmpQ.y, tmpQ.z, tmpQ.w);
+    }
+  }
+  bMix.stopAllAction();
+
+  console.log('[BVH] bake ' + N + 'f in ' + (performance.now()-t0).toFixed(0) + 'ms');
+
+  const tracks = [];
+  for (const hn of matched) {
+    tracks.push(new THREE.QuaternionKeyframeTrack(bones[hn].name + '.quaternion', times.slice(), data[hn]));
+  }
+  const clip = new THREE.AnimationClip('bvh', parsed.clip.duration, tracks);
+
+  if (mixer) mixer.stopAllAction();
+  mixer = new THREE.AnimationMixer(vrm.scene);
+  action = mixer.clipAction(clip);
+  action.setLoop(THREE.LoopRepeat, Infinity);
+  action.reset();
+  action.timeScale = parseFloat(document.getElementById('speed').value) || 1;
+  action.play();
+
+  bvhMode = true;
+  idleOn = false;
+  if (idleTimer) clearTimeout(idleTimer);
+
+  document.getElementById('now').textContent = '▶ ' + (name || 'BVH');
+  setStatus('BVH: ' + (name || 'clip'), 'ok');
+}
+
+function stopBVH() {
+  if (mixer) mixer.stopAllAction();
+  mixer = null; action = null;
+  if (bvhRoot?.parent) bvhRoot.parent.remove(bvhRoot);
+  bvhRoot = null;
+  bvhMode = false;
+  poseNeutral();
+  idleOn = true;
+  document.getElementById('now').textContent = '— не играет —';
+  setStatus('нейтраль', 'ok');
+}
+
+/* ═════════ 6. UI панели BVH ═════════ */
+const listEl = document.getElementById('list');
+const statsEl = document.getElementById('stats');
+const searchEl = document.getElementById('search');
+let allFiles = [];
+
+async function refreshList() {
+  statsEl.textContent = 'запрос…';
+  listEl.innerHTML = '<div class="anim-empty">загрузка…</div>';
+  try {
+    const r = await fetch('/api/animations');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    allFiles = Array.isArray(d.files) ? d.files : [];
+    statsEl.textContent = 'найдено ' + allFiles.length + ' файлов';
+    renderList();
+  } catch(e) {
+    statsEl.textContent = 'список недоступен';
+    listEl.innerHTML = '<div class="anim-empty">сервер не отдал /api/animations</div>';
+  }
+}
+
+function renderList() {
+  const q = (searchEl.value || '').toLowerCase().trim();
+  const f = q ? allFiles.filter(x => x.toLowerCase().includes(q)) : allFiles;
+  if (!f.length) { listEl.innerHTML = '<div class="anim-empty">ничего не найдено</div>'; return; }
+  const frag = document.createDocumentFragment();
+  for (const name of f) {
+    const el = document.createElement('div');
+    el.className = 'anim-item';
+    el.textContent = name.replace(/\.bvh$/i, '');
+    el.title = name;
+    el.dataset.name = name;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.anim-item').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      playBVHByName(name);
+    });
+    frag.appendChild(el);
+  }
+  listEl.innerHTML = '';
+  listEl.appendChild(frag);
+}
+
+searchEl.addEventListener('input', renderList);
+document.getElementById('btn-reload').addEventListener('click', refreshList);
+document.getElementById('btn-stop').addEventListener('click', stopBVH);
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (action) { action.paused = false; action.play(); }
+});
+document.getElementById('btn-pause').addEventListener('click', () => {
+  if (action) action.paused = !action.paused;
+});
+const speedEl = document.getElementById('speed');
+speedEl.addEventListener('input', () => {
+  const v = parseFloat(speedEl.value);
+  document.getElementById('speed-v').textContent = v.toFixed(1);
+  if (action) action.timeScale = v;
+});
+
+document.getElementById('open-anim').addEventListener('click', () => {
+  const p = document.getElementById('anim-panel');
+  p.classList.toggle('open');
+  if (p.classList.contains('open') && !allFiles.length) refreshList();
+});
+document.getElementById('anim-handle').addEventListener('click', () => {
+  document.getElementById('anim-panel').classList.remove('open');
+});
+
+/* ═════════ 7. Публичный API для LLM ═════════ */
+window.AI = {
+  pose(map) {
+    if (bvhMode) return;
+    if (!map) return;
+    idleOn = false;
+    for (const [hn, arr] of Object.entries(map)) {
+      if (!targets[hn] || !Array.isArray(arr) || arr.length !== 3) continue;
+      setBoneTarget(hn, arr[0], arr[1], arr[2]);
+    }
+    scheduleIdleReturn(4);
+  },
+  body(map) {
+    if (bvhMode) return;
+    if (!map) return;
+    idleOn = false;
+    for (const [k, v] of Object.entries(map)) {
+      if (k in bodyT && typeof v === 'number') bodyT[k] = v;
+    }
+    scheduleIdleReturn(5);
+  },
+  face(map) {
+    if (!map) return;
+    for (const [k, v] of Object.entries(map)) setFace(k, v);
+  },
+  emote(name) {
+    if (bvhMode) stopBVH();
+    idleOn = false;
+    if (name === 'joy')    { poseJoy(); scheduleIdleReturn(3); }
+    if (name === 'wave')   { poseWave('right'); scheduleIdleReturn(3); }
+    if (name === 'wave_l') { poseWave('left');  scheduleIdleReturn(3); }
+    if (name === 'nod') {
+      let n = 0;
+      const iv = setInterval(() => {
+        setBoneTarget('head', n % 2 ? 0.25 : -0.05, 0, 0);
+        if (++n > 3) { clearInterval(iv); setBoneTarget('head', 0, 0, 0); scheduleIdleReturn(3); }
+      }, 220);
+      return;
+    }
+    if (name === 'neutral') { idleOn = true; poseNeutral(); }
+    if (name === 'blink')   { blink(); }
+  },
+  bvh(name) {
+    if (!name) return;
+    playBVHByName(name);
+  },
+  stop() {
+    if (bvhMode) { stopBVH(); return; }
+    if (idleTimer) clearTimeout(idleTimer);
+    idleOn = true; poseNeutral();
+  },
+  reset() { stopBVH(); },
+};
+
+/* ═════════ 8. Чат + очередь шагов ═════════ */
+const chatHistory = [];
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send-btn');
+const messagesEl = document.getElementById('messages');
+
+function addBubble(role, text) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + (role === 'user' ? 'me' : 'ai');
+  el.textContent = text;
+  const t = document.createElement('span');
+  t.className = 'time';
+  t.textContent = new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  el.appendChild(t);
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return el;
+}
+function addTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg ai typing';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  messagesEl.appendChild(el); messagesEl.scrollTop = messagesEl.scrollHeight;
+  return el;
+}
+const sleep = (s) => new Promise(r => setTimeout(r, Math.max(0, s) * 1000));
+
+let stepQueue = [], stepBusy = false, stepToken = 0;
+function cancelQueue() { stepQueue = []; stepToken++; }
+
+async function runStep(step, token) {
+  if (token !== stepToken) return;
+  if (typeof step.wait === 'number') { await sleep(step.wait); return; }
+  if (step.stop) { window.AI.stop(); return; }
+  if (step.freeze) { if (idleTimer) clearTimeout(idleTimer); idleOn = false; return; }
+  if (step.bvh) { window.AI.bvh(step.bvh); return; }
+  if (step.emote) { window.AI.emote(step.emote); await sleep(step.dur ?? 1.2); return; }
+  if (step.face)  { window.AI.face(step.face); await sleep(step.dur ?? 0.3); return; }
+  if (step.body)  { window.AI.body(step.body); await sleep(step.dur ?? 0.6); return; }
+  if (step.bones) {
+    window.AI.pose(step.bones);
+    const dur = step.dur ?? 0.5, hold = step.hold ?? 1.0;
+    await sleep(dur + hold);
+    if (step.loop && step.loop > 1) {
+      for (let i = 1; i < step.loop; i++) {
+        if (token !== stepToken) return;
+        await sleep(hold);
+      }
+    }
+  }
+}
+
+async function runStepList(list, token) {
+  for (const s of list) {
+    if (token !== stepToken) return;
+    if (s.loop && s.steps) {
+      for (let i = 0; i < s.loop; i++) {
+        if (token !== stepToken) return;
+        await runStepList(s.steps, token);
+      }
+    } else {
+      await runStep(s, token);
+    }
+  }
+}
+
+async function processQueue() {
+  if (stepBusy) return;
+  stepBusy = true;
+  const my = stepToken;
+  const snap = stepQueue.slice();
+  stepQueue = [];
+  try { await runStepList(snap, my); }
+  catch(e) { console.warn(e); }
+  stepBusy = false;
+  if (my === stepToken) {
+    const last = snap[snap.length - 1];
+    const hold = last && (last.freeze || last.hold === 'forever' || last.bvh);
+    if (!hold && !bvhMode) { idleOn = true; poseNeutral(); }
+  }
+}
+
+let busy = false;
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (busy) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; input.blur();
+
+  addBubble('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  busy = true; sendBtn.disabled = true;
+  const typing = addTyping();
+
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory }),
+    });
+    const data = await r.json();
+    typing.remove();
+
+    if (!r.ok || data.error) {
+      addBubble('ai', '⚠️ ' + (data.error || ('HTTP ' + r.status)));
+      chatHistory.pop(); return;
+    }
+    if (data.say) {
+      addBubble('ai', data.say);
+      chatHistory.push({ role: 'assistant', content: data.say });
+    }
+    cancelQueue();
+    if (Array.isArray(data.steps) && data.steps.length) {
+      stepQueue = data.steps.slice();
+      processQueue();
+    }
+  } catch(err) {
+    typing.remove();
+    addBubble('ai', '⚠️ ' + err.message);
+    chatHistory.pop();
+  } finally {
+    busy = false; sendBtn.disabled = false;
+  }
+});
+
+/* ═════════ 9. Кнопки-эмодзи + чат-handle ═════════ */
+document.querySelectorAll('.pill[data-cmd]').forEach(p => {
+  p.addEventListener('click', () => {
+    const c = p.dataset.cmd;
+    if (navigator.vibrate) navigator.vibrate(8);
+    if (c === 'stop') { cancelQueue(); window.AI.stop(); return; }
+    window.AI.emote(c);
+  });
+});
+chatHandle.addEventListener('click', () => { app.classList.toggle('expanded'); setTimeout(resize, 340); });
+let swipeY = null;
+chatHandle.addEventListener('touchstart', e => { swipeY = e.touches[0].clientY; }, {passive:true});
+chatHandle.addEventListener('touchend', e => {
+  if (swipeY === null) return;
+  const dy = e.changedTouches[0].clientY - swipeY;
+  if (dy < -30) app.classList.add('expanded');
+  if (dy >  30) app.classList.remove('expanded');
+  swipeY = null; setTimeout(resize, 340);
+});
+
+/* ═════════ 10. Лепестки + рендер ═════════ */
+(function(){
+  const pb = document.getElementById('petals'), sb = document.getElementById('sparkles');
+  const small = innerWidth < 700;
+  for (let i = 0; i < (small?14:24); i++) {
+    const p = document.createElement('div'); p.className = 'petal';
+    p.style.left = Math.random()*100 + 'vw';
+    p.style.animationDuration = (9 + Math.random()*8) + 's';
+    p.style.animationDelay = (-Math.random()*14) + 's';
+    const s = 9 + Math.random()*10;
+    p.style.width = p.style.height = s + 'px';
+    pb.appendChild(p);
+  }
+  for (let i = 0; i < (small?24:44); i++) {
+    const s = document.createElement('div'); s.className = 'sp';
+    const sz = 3 + Math.random()*7;
+    s.style.width = s.style.height = sz + 'px';
+    s.style.left = Math.random()*100 + 'vw';
+    s.style.top  = Math.random()*100 + 'vh';
+    s.style.animationDuration = (1.8 + Math.random()*3.4) + 's';
+    s.style.animationDelay = (-Math.random()*5) + 's';
+    s.style.opacity = 0.35 + Math.random()*0.6;
+    sb.appendChild(s);
+  }
+})();
+
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 200));
+setTimeout(resize, 50);
+new ResizeObserver(resize).observe(document.getElementById('scene-wrap'));
+
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  controls.update();
+  if (vrm) {
+    if (bvhMode && mixer) {
+      mixer.update(dt);
+    } else {
+      idle(t);
+      applyTargets(dt);
+      updateBlink(dt);
+      autoBlink(dt);
+    }
+    vrm.update(dt);
+  }
+  renderer.render(scene, camera);
+}
+tick();
+</script>
+</body>
+</html>
