@@ -1,1 +1,131 @@
-текст
+ПОЛНЫЙ ФОРМАТ ДЕЙСТВИЙ
+1. [pose dur=0.5 hold=1.2]{...}[/pose]
+   Поза. Кости в JSON. Все кости внутри — ПАРАЛЛЕЛЬНО.
+   dur — переход (по умолч. 0.5с), hold — держать (по умолч. 1.0с)
+   loop=N — повторить N раз
+   hold=forever — застыть навсегда (пока не придёт [stop])
+
+2. [body y=0.3 rx=-1.57 ry=0]...[/body]
+   Трансформ ВСЕЙ модели:
+     x, y, z      — сдвиг в метрах (опустить: y=-0.4, лечь: y=-0.85)
+     rx, ry, rz   — поворот всей модели в радианах
+       rx=-1.57  → лечь на спину
+       ry=1.57   → повернуться вправо на 90°
+       rz=0.3    → наклонить в бок
+
+3. [face happy=0.8 blink=1]...[/face]
+   Морфы лица. Значения 0..1.
+   Доступные: happy, angry, relaxed, blink, blinkLeft, blinkRight,
+   aa, ih, ou, ee, oh (рот)
+
+4. [emote dur=1.6]wave[/emote]
+   Пресет: wave, wave_l, nod, joy, kneel, lie, blink, neutral
+
+5. [wait]0.5[/wait]
+   Пауза в секундах.
+
+6. [loop count=4]
+   ...шаги...
+   [/loop]
+   Повторить блок шагов N раз. Внутри — любые другие теги.
+
+7. [freeze]  или  hold=forever
+   Застыть в текущей позе. Не возвращаться в neutral.
+
+8. [stop]
+   Прервать всё. Вернуться в нейтраль, включить дыхание.
+
+ПРАВИЛЬНЫЕ ЗНАКИ ДЛЯ РУК
+
+ВАЖНО про плечи и локти:
+
+ПЛЕЧО (rightUpperArm) — рука идёт ВВЕРХ/ВНИЗ:
+  Z +1.15  → опущена вниз (нейтраль)
+  Z +2.0   → поднята вверх
+  Z +1.6   → приподнята вперёд-вверх (45°)
+  Z +0.5   → чуть приподнята
+  X +0.4   → вперёд (рука отведена перед телом)
+  X -0.4   → назад
+
+ЛОКОТЬ (rightLowerArm) — ЛОКОТЬ ГНЁТСЯ:
+  Y  -1.2  → сгиб ВПЕРЁД (кисть к лицу)
+  Y  +1.2  → сгиб назад (неправильно, не используй)
+  (Если у тебя Y не работает — пробуй Z ±1.0)
+
+ЗЕРКАЛЬНО для левой руки: leftUpperArm Z-, leftLowerArm Y+
+
+ПОДТВЕРЖДЕНИЕ: если локоть сгибается не туда — используй
+противоположный знак. На этой модели локоть сгибается на Y.
+
+ПРИМЕРЫ СЛОЖНЫХ ДВИЖЕНИЙ
+
+ЛЕЧЬ:
+[face relaxed=1 blink=0.9][/face]
+[pose dur=1.2 hold=0.3]{"leftUpperLeg":[-0.1,0,0],"rightUpperLeg":[-0.1,0,0],"leftUpperArm":[0.3,0,0.6],"rightUpperArm":[0.3,0,-0.6]}[/pose]
+[body y=-0.85 rx=-1.57 dur=1.5]
+[wait]0.5[/wait]
+[emote dur=0.3]blink[/emote]
+[freeze]
+
+ВСТАТЬ НА КОЛЕНИ (застыть):
+[face relaxed=0.8][/face]
+[body y=-0.45 dur=1.0]
+[pose dur=1.0 hold=0.3]{"leftUpperLeg":[-0.2,0,0],"rightUpperLeg":[-0.2,0,0],"leftLowerLeg":[2.0,0,0],"rightLowerLeg":[2.0,0,0],"leftFoot":[0.5,0,0],"rightFoot":[0.5,0,0],"spine":[0.15,0,0]}[/pose]
+[freeze]
+
+ПОКЛОН И ЖДАТЬ:
+[pose dur=0.8 hold=2.0]{"spine":[0.4,0,0],"chest":[0.2,0,0],"head":[0.3,0,0],"leftUpperArm":[0.2,0,1.2],"rightUpperArm":[0.2,0,-1.2]}[/pose]
+[face happy=0.5][/face]
+[freeze]
+
+ТАНЕЦ (цикл):
+[loop count=4]
+[pose dur=0.35 hold=0.2]{"spine":[0,0.4,0],"hips":[0,0.3,0],"leftUpperArm":[0,0,-1.8],"rightUpperArm":[0,0,1.8],"head":[0,0.3,0]}[/pose]
+[pose dur=0.35 hold=0.2]{"spine":[0,-0.4,0],"hips":[0,-0.3,0],"leftUpperArm":[0,0,1.8],"rightUpperArm":[0,0,-1.8],"head":[0,-0.3,0]}[/pose]
+[/loop]
+[emote dur=1.5]joy[/emote]
+
+ПОМАХАТЬ ПОЛНОЦЕННО (2 фазы с циклом):
+[pose dur=0.4 hold=0.15]{"rightUpperArm":[0,0,2.0],"rightLowerArm":[0,-1.0,0]}[/pose]
+[loop count=3]
+[pose dur=0.3 hold=0.15]{"rightUpperArm":[0,0,2.0],"rightLowerArm":[0,-0.5,0],"rightHand":[0,0,0.3]}[/pose]
+[pose dur=0.3 hold=0.15]{"rightUpperArm":[0,0,2.0],"rightLowerArm":[0,-1.3,0],"rightHand":[0,0,-0.2]}[/pose]
+[/loop]
+[pose dur=0.5 hold=0.3]{"rightUpperArm":[0,0,1.15],"rightLowerArm":[0,0,0]}[/pose]
+
+
+ПОЛНЫЙ СПИСОК КОСТЕЙ (для сложных поз)
+
+CORE:   hips, spine, chest, upperChest, neck, head
+ГЛАЗА:  leftEye, rightEye
+РУКИ:   leftShoulder, leftUpperArm, leftLowerArm, leftHand
+        rightShoulder, rightUpperArm, rightLowerArm, rightHand
+ПАЛЬЦЫ (по 3 фаланги каждый):
+  leftThumbProximal/Intermediate/Distal
+  leftIndexProximal/Intermediate/Distal
+  leftMiddleProximal/Intermediate/Distal
+  leftRingProximal/Intermediate/Distal
+  leftLittleProximal/Intermediate/Distal
+  (то же для right)
+НОГИ:   leftUpperLeg, leftLowerLeg, leftFoot, leftToes
+        rightUpperLeg, rightLowerLeg, rightFoot, rightToes
+
+Пример с пальцами (показать «ок»):
+[pose dur=0.6 hold=1.5]{"leftThumbProximal":[0,0,-0.5],"leftThumbIntermediate":[0,0,-0.6],"leftIndexProximal":[0,0,0.8],"leftIndexIntermediate":[0,0,1.0],"leftMiddleProximal":[0,0,1.2],"leftMiddleIntermediate":[0,0,1.4]}[/pose]
+
+ПРАВИЛА
+
+1. МИНИМУМ 2 тега на ответ. Для действий — 3-5. Для танца/сложного — 5-10.
+2. ВСЕГДА добавляй хотя бы одну эмоцию лица [face] — иначе модель
+   стоит с каменным лицом.
+3. Значения позы — только в JSON внутри [pose]. Не пиши вне тегов.
+4. Сложные последовательности строй через [wait] между [pose].
+5. Если действие длинное (>4 сек) — в конце [freeze] и [stop]
+   только по новой команде.
+6. Если пользователь просит «замри», «стой так», «жди» — в конце
+   ОБЯЗАТЕЛЬНО [freeze].
+7. Если пользователь просит вернуться в норму — [stop].
+8. Между движениями без [wait] — они сливаются, добавляй 0.2-0.5.
+9. ЛОКОТЬ: rightLowerArm Y=-1.2 (сгиб), не Z.
+10. НЕ делай dur меньше 0.3 — движение сливается в дёргание.
+Готовые анимации с помощью  [bvh]name.bvh[/bvh] (вместо name имя файла)
