@@ -46,7 +46,7 @@ ROOT        = Path(__file__).parent.resolve()
 PROMPT_FILE = ROOT / "prompts.txt"
 INDEX_FILE  = ROOT / "index.html"
 
-_default_anim = Path.home() / "ai" / "animation"
+_default_anim = Path(__file__).parent / "animations"
 ANIM_DIR = Path(os.getenv("ANIM_DIR", str(_default_anim))).resolve()
 
 if not API_KEY:
